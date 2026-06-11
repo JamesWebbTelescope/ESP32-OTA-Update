@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Quick Stats -->
+    <div class="card">
+        <h2>Quick Stats</h2>
+        <div class="stat-cards" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            <div class="stat-card">
+                <div class="stat-number">{{ devices|length }}</div>
+                <div class="stat-label">Connected Devices</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ history|length }}</div>
+                <div class="stat-label">Recent Uploads</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Form -->
+    <div class="card">
+        <h2>Add Device</h2>
+        <form method="POST" action="{{ url_for('add_device') }}">
+            <div class="form-group">
+                <label>IP Address or Hostname</label>
+                <input type="text" name="ip" class="form-control" placeholder="192.168.1.100 or esp32.local" required>
+            </div>
+            <div class="form-group">
+                <label>Display Name (Optional)</label>
+                <input type="text" name="hostname" class="form-control" placeholder="My ESP32">
+            </div>
+            <div class="form-group">
+                <label>Port</label>
+                <input type="number" name="port" class="form-control" value="80" min="1" max="65535">
+            </div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" class="form-control" value="{{ default_username }}">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" value="{{ default_password if default_password != '***' else '' }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Device</button>
+            <button type="button" onclick="scanDevices()" class="btn btn-success">Scan Network</button>
+        </form>
+    </div>
+</div>
+
+<!-- Devices List -->
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h2>Connected ESP32 Devices</h2>
+        
+        {% if devices %}
+            <div class="device-grid">
+                {% for device in devices %}
+                    <div class="device-card {% if not device.get('online', True) %}offline{% endif %}">
+                        <div class="device-header">
+                            <div class="device-name">{{ device.get('hostname', device.get('ip', 'Unknown')) }}</div>
+                            {% if device.get('online', True) %}
+                                <span class="badge badge-success">Online</span>
+                            {% else %}
+                                <span class="badge badge-warning">Offline</span>
+                            {% endif %}
+                        </div>
+                        <div class="device-ip">{{ device.get('ip', 'Unknown') }}:{{ device.get('port', 80) }}</div>
+                        
+                        {% if device.get('version') %}
+                            <div style="margin: 8px 0; font-size: 0.85rem;">
+                                <strong>Version:</strong> {{ device.version }}
+                            </div>
+                        {% endif %}
+                        
+                        {% if device.get('info') and device.info.get('free_heap') %}
+                            <div style="margin: 8px 0; font-size: 0.85rem;">
+                                <strong>Free Heap:</strong> {{ device.info.free_heap|int / 1024 }} KB
+                            </div>
+                        {% endif %}
+                        
+                        <div style="margin-top: 12px;">
+                            <form method="POST" action="{{ url_for('upload_firmware') }}" enctype="multipart/form-data" style="margin: 0;">
+                                <input type="hidden" name="device_index" value="{{ loop.index0 }}">
+                                <button type="submit" class="btn btn-success btn-sm">Upload Firmware</button>
+                            </form>
+                            
+                            <form method="POST" action="{{ url_for('remove_device', index=loop.index0) }}" style="display: inline; margin: 0;">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Remove this device?')">Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No devices found. Click "Scan Network" to discover ESP32 devices on your local network.</p>
+            <button onclick="scanDevices()" class="btn btn-primary">Scan Network Now</button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Upload History -->
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h2>Recent Upload History</h2>
+        
+        {% if history %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Device</th>
+                        <th>Firmware</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in history[-10:] %}
+                        <tr>
+                            <td>{{ item.timestamp }}</td>
+                            <td>{{ item.device_hostname }} ({{ item.device_ip }})</td>
+                            <td>{{ item.filename }}</td>
+                            <td>{{ "%.2f"|format(item.size / 1024) }} KB</td>
+                            <td>
+                                {% if item.status == 'success' %}
+                                    <span class="badge badge-success">{{ item.status|upper }}</span>
+                                {% elif item.status == 'uploading' or item.status == 'connecting' %}
+                                    <span class="badge badge-info">{{ item.status|upper }}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{{ item.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No upload history yet. Upload firmware to see activity here.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h2>Quick Actions</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <a href="{{ url_for('firmware_management') }}" class="btn btn-primary">Manage Firmware Library</a>
+            <button onclick="scanDevices()" class="btn btn-success">Scan for Devices</button>
+            <a href="#" onclick="document.forms[0].submit()" class="btn btn-warning">Refresh Page</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh device status every 30 seconds
+    setInterval(function() {
+        fetch('/api/devices')
+            .then(response => response.json())
+            .then(data => {
+                // Update device statuses
+                data.devices.forEach(device => {
+                    // Could implement real-time updates here
+                });
+            });
+    }, 30000);
+</script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Firmware Library{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h2>Firmware Library</h2>
+        <p>Upload and manage your ESP32 firmware files for easy deployment to multiple devices.</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 20px;">
+    <!-- Upload New Firmware -->
+    <div class="card">
+        <h3>Upload New Firmware</h3>
+        <form method="POST" action="{{ url_for('firmware_upload') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Select Firmware File (.bin or .bin.gz)</label>
+                <input type="file" name="firmware" class="form-control" accept=".bin,.bin.gz" required>
+            </div>
+            <button type="submit" class="btn btn-success">Upload Firmware</button>
+        </form>
+    </div>
+
+    <!-- Firmware List -->
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>Available Firmware Files</h3>
+        
+        {% if firmware_files %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Last Modified</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in firmware_files %}
+                        <tr>
+                            <td><code>{{ file.name }}</code></td>
+                            <td>{{ "%.2f"|format(file.size / 1024) }} KB</td>
+                            <td>{{ file.modified }}</td>
+                            <td>
+                                <a href="{{ url_for('firmware_download', filename=file.name) }}" 
+                                   class="btn btn-primary btn-sm">Download</a>
+                                <form method="POST" 
+                                      action="{{ url_for('firmware_delete', filename=file.name) }}" 
+                                      style="display: inline;">
+                                    <button type="submit" 
+                                            class="btn btn-danger btn-sm"
+                                            onclick="return confirm('Are you sure you want to delete {{ file.name }}?')">
+                                        Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4">
+                            <strong>Total:</strong> {{ firmware_files|length }} firmware file(s)
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        {% else %}
+            <p>No firmware files uploaded yet. Upload your first firmware file to get started.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>Firmware Library Tips</h3>
+        <ul style="line-height: 1.8;">
+            <li><strong>Organize your firmware:</strong> Use descriptive filenames like <code>esp32-ota-v1.0.0.bin</code></li>
+            <li><strong>Keep backups:</strong> Always keep previous versions before updating all devices</li>
+            <li><strong>Test first:</strong> Upload to one device first to verify the firmware works correctly</li>
+            <li><strong>Version control:</strong> Consider using Git to track your firmware versions</li>
+        </ul>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>Quick Actions</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Dashboard</a>
+            <a href="#" onclick="window.location.reload()" class="btn btn-warning">Refresh List</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh file list every 30 seconds
+    setInterval(function() {
+        fetch('/firmware')
+            .then(response => response.text())
+            .then(html => {
+                // Could update the table dynamically here
+            });
+    }, 30000);
+</script>
+{% endblock %}

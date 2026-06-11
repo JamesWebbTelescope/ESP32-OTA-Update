@@ -1,0 +1,31 @@
+# ESP32 OTA Update Frontend Requirements
+# ========================================
+# Install with: pip install -r requirements.txt
+
+# Web framework
+Flask>=2.0.0
+Werkzeug>=2.0.0
+
+# HTTP client for communicating with ESP32
+requests>=2.25.0
+
+# Network utilities
+netifaces>=0.11.0
+
+# For better JSON handling (optional)
+python-dotenv>=0.19.0
+
+# For network scanning (optional, install if you want advanced scanning)
+# python-nmap>=0.7.1
+
+# For async support (optional)
+# aiohttp>=3.8.0
+
+# For better file handling (optional)
+# python-magic>=0.4.24
+
+# For QR code generation (optional, for device configuration)
+# qrcode>=7.3.1
+
+# For serial communication (optional, for direct uploading)
+# pyserial>=3.5

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Firmware{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h2>Upload Firmware to {{ devices[device_index].get('hostname', devices[device_index].get('ip', 'Device')) }}</h2>
+        
+        <div style="margin-bottom: 20px;">
+            <p><strong>Device:</strong> {{ devices[device_index].get('hostname', devices[device_index].get('ip', 'Unknown')) }}</p>
+            <p><strong>IP:</strong> {{ devices[device_index].get('ip', 'Unknown') }}:{{ devices[device_index].get('port', 80) }}</p>
+            {% if devices[device_index].get('version') %}
+                <p><strong>Current Version:</strong> {{ devices[device_index].version }}</p>
+            {% endif %}
+        </div>
+        
+        <form method="POST" action="{{ url_for('upload_firmware') }}" enctype="multipart/form-data">
+            <input type="hidden" name="device_index" value="{{ device_index }}">
+            
+            <div class="form-group">
+                <label>Select Firmware File (.bin or .bin.gz)</label>
+                <div class="file-input" onclick="document.getElementById('firmware-input').click()">
+                    <span id="file-name">Click to browse or drag and drop</span>
+                    <input type="file" name="firmware" id="firmware-input" 
+                           accept=".bin,.bin.gz" style="display: none;"
+                           onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click to browse or drag and drop'">
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" class="btn btn-success">
+                    <span id="upload-text">Upload & Update Device</span>
+                    <span id="upload-loading" style="display: none;">Uploading...</span>
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary" style="background: #666; color: white;">Cancel</a>
+            </div>
+            
+            <div id="upload-progress" style="display: none; margin-top: 20px;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0% - Connecting to device...</div>
+            </div>
+        </form>
+        
+        <div id="upload-status" style="margin-top: 20px;"></div>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>Upload Instructions</h3>
+        <ol style="line-height: 1.8;">
+            <li>Select a compiled firmware file (.bin format)</li>
+            <li>Click "Upload & Update Device"</li>
+            <li>Wait for the upload to complete (do not close this page)</li>
+            <li>The ESP32 will automatically restart with the new firmware</li>
+            <li>Check the device console for progress and errors</li>
+        </ol>
+        
+        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 4px;">
+            <strong>Note:</strong> The upload process may take several minutes depending on file size and network speed.
+            The device will restart automatically after successful update.
+        </div>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 20px;">
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>Alternative: Use Existing Firmware</h3>
+        <a href="{{ url_for('firmware_management') }}" class="btn btn-primary">Browse Firmware Library</a>
+        <p style="margin-top: 10px; color: #666;">Upload firmware files to your library first, then select them for deployment.</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Drag and drop file support
+    const fileInput = document.getElementById('firmware-input');
+    const fileArea = document.querySelector('.file-input');
+    const fileNameDisplay = document.getElementById('file-name');
+    
+    fileArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileArea.style.borderColor = '#4a6fa5';
+        fileArea.style.background = 'rgba(74, 111, 165, 0.1)';
+    });
+    
+    fileArea.addEventListener('dragleave', () => {
+        fileArea.style.borderColor = '#ddd';
+        fileArea.style.background = 'rgba(74, 111, 165, 0)';
+    });
+    
+    fileArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileArea.style.borderColor = '#ddd';
+        fileArea.style.background = 'rgba(74, 111, 165, 0)';
+        
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.name.endsWith('.bin') || file.name.endsWith('.bin.gz')) {
+                fileInput.files = e.dataTransfer.files;
+                fileNameDisplay.textContent = file.name;
+            } else {
+                alert('Please select a .bin or .bin.gz file');
+            }
+        }
+    });
+    
+    // Form submission with progress
+    const uploadForm = document.querySelector('form');
+    uploadForm.addEventListener('submit', (e) => {
+        const file = fileInput.files[0];
+        if (!file) {
+            e.preventDefault();
+            alert('Please select a firmware file');
+            return;
+        }
+        
+        document.getElementById('upload-text').style.display = 'none';
+        document.getElementById('upload-loading').style.display = 'inline';
+        document.getElementById('upload-progress').style.display = 'block';
+    });
+    
+    // Simulate progress (for demonstration - actual progress would come from server)
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        if (progress < 90) {
+            progress += Math.random() * 10;
+            document.getElementById('progress-fill').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = Math.round(progress) + '% - Uploading...';
+        }
+    }, 500);
+    
+    // Clear interval when page unloads
+    window.addEventListener('beforeunload', () => {
+        clearInterval(progressInterval);
+    });
+</script>
+{% endblock %}

@@ -113,7 +113,7 @@ void handleInfo() {
   json += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
   json += "\"sketch_size\":" + String(ESP.getSketchSize()) + ",";
   json += "\"free_sketch_space\":" + String(ESP.getFreeSketchSpace()) + ",";
-  json += "\"chip_id\":" + String(ESP.getChipId()) + ",";
+  json += "\"chip_id\":" + String(ESP.getChipRevision()) + ",";
   json += "\"cpu_freq\":" + String(ESP.getCpuFreqMHz()) + 
   json += "}";
   
@@ -171,7 +171,7 @@ void handleOTAUpload() {
   if (otaServer.method() == HTTP_POST) {
     // Handle raw binary upload
     if (Update.begin(UPDATE_SIZE_UNKNOWN)) {
-      size_t written = otaServer.streamFile(Update);
+      size_t written = otaServer.streamFile(Update, Update.md5String());
       if (Update.end(true)) {
         otaServer.send(200, "text/plain", "Update successful, restarting...");
         delay(1000);
@@ -344,7 +344,7 @@ void setup() {
 void loop() {
   server.handleClient();
   otaServer.handleClient();
-  MDNS.update();
+  //MDNS.update();
   
   // Heartbeat LED
   static unsigned long lastBlink = 0;

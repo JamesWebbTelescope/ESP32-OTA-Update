@@ -355,6 +355,30 @@
         select.form-control {
             cursor: pointer;
         }
+        
+        /* Small select dropdown for device actions */
+        select.form-control.btn-sm {
+            padding: 6px 8px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: white;
+            transition: border-color 0.3s;
+        }
+        
+        select.form-control.btn-sm:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2);
+        }
+        
+        /* Device action buttons container */
+        .device-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
 
         /* Responsive */
         @media (max-width: 768px) {

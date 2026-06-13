@@ -223,6 +223,7 @@ void handleUpdateUpload() {
     if (Update.end(true)) {
       Serial.println("Update finished");
       Serial.printf("Total size: %u\n", upload.totalSize);
+      //ESP.restart(); //reboot the board after successful update
     } else {
       Serial.println("Update error");
       Update.printError(Serial);

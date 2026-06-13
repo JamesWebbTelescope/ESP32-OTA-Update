@@ -53,6 +53,13 @@
 <div class="container" style="margin-top: 20px;">
     <div class="card" style="grid-column: 1 / -1;">
         <h2>Connected ESP32 Devices</h2>
+        {% if not firmware_files %}
+        <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ff9800;">
+            <strong>Note:</strong> No firmware files available. 
+            <a href="{{ url_for('firmware_management') }}" style="color: #166088; text-decoration: underline;">Upload firmware files first</a> 
+            to enable device updates.
+        </div>
+        {% endif %}
         
         {% if devices %}
             <div class="device-grid">
@@ -80,10 +87,16 @@
                             </div>
                         {% endif %}
                         
-                        <div style="margin-top: 12px;">
-                            <form method="POST" action="{{ url_for('upload_firmware') }}" enctype="multipart/form-data" style="margin: 0;">
+                        <div class="device-actions">
+                            <form method="POST" action="{{ url_for('upload_firmware') }}" enctype="multipart/form-data" style="margin: 0; display: flex; flex-wrap: wrap; gap: 8px; flex: 1;">
                                 <input type="hidden" name="device_index" value="{{ loop.index0 }}">
-                                <button type="submit" class="btn btn-success btn-sm">Upload Firmware</button>
+                                <select name="firmware_filename" class="form-control btn-sm" style="flex: 1; min-width: 150px;" {% if not firmware_files %}disabled{% endif %}>
+                                    <option value="none">-- Select Firmware --</option>
+                                    {% for fw_file in firmware_files %}
+                                    <option value="{{ fw_file.name }}">{{ fw_file.name }} ({{ "%.1f"|format(fw_file.size / 1024) }} KB)</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-success btn-sm">Upload</button>
                             </form>
                             
                             <form method="POST" action="{{ url_for('remove_device', index=loop.index0) }}" style="display: inline; margin: 0;">

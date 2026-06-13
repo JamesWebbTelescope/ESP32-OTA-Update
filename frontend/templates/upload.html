@@ -19,7 +19,26 @@
             <input type="hidden" name="device_index" value="{{ device_index }}">
             
             <div class="form-group">
-                <label>Select Firmware File (.bin or .bin.gz)</label>
+                <label>Option 1: Select from existing firmware library</label>
+                {% if firmware_files %}
+                <select name="firmware_filename" class="form-control">
+                    <option value="none">-- Select existing firmware --</option>
+                    {% for fw_file in firmware_files %}
+                    <option value="{{ fw_file.name }}">{{ fw_file.name }} ({{ "%.1f"|format(fw_file.size / 1024) }} KB)</option>
+                    {% endfor %}
+                </select>
+                <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">
+                    Or upload a new file below
+                </p>
+                {% else %}
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
+                    No firmware files available. Upload a new file below.
+                </p>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label>Option 2: Upload new firmware file (.bin or .bin.gz)</label>
                 <div class="file-input" onclick="document.getElementById('firmware-input').click()">
                     <span id="file-name">Click to browse or drag and drop</span>
                     <input type="file" name="firmware" id="firmware-input" 

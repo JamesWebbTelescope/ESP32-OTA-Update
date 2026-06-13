@@ -208,9 +208,22 @@ def check_esp32_device(ip, port=DEFAULT_ESP32_PORT, username=DEFAULT_USERNAME, p
 @app.route('/')
 def index():
     """Main dashboard page."""
+    # Get available firmware files
+    firmware_files = []
+    if os.path.exists(app.config['FIRMWARE_FOLDER']):
+        for filename in os.listdir(app.config['FIRMWARE_FOLDER']):
+            if allowed_file(filename):
+                filepath = os.path.join(app.config['FIRMWARE_FOLDER'], filename)
+                firmware_files.append({
+                    'name': filename,
+                    'size': os.path.getsize(filepath),
+                    'modified': datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
+                })
+    
     return render_template('index.html', 
                          devices=devices,
-                         history=upload_history[-10:])  # Last 10 uploads
+                         history=upload_history[-10:],  # Last 10 uploads
+                         firmware_files=firmware_files)
 
 
 @app.route('/scan', methods=['GET'])
@@ -292,85 +305,117 @@ def upload_firmware():
         
         device = devices[device_index]
         
-        # Check if file was uploaded
-        if 'firmware' not in request.files:
-            flash('No firmware file selected', 'error')
+        # Check if user selected existing firmware from dropdown
+        firmware_filename = request.form.get('firmware_filename')
+        
+        if firmware_filename and firmware_filename != 'none':
+            # Use existing firmware file from library
+            firmware_path = os.path.join(app.config['FIRMWARE_FOLDER'], firmware_filename)
+            
+            if not os.path.exists(firmware_path):
+                flash('Selected firmware file not found', 'error')
+                return redirect(url_for('index'))
+                
+            filename = firmware_filename
+            temp_path = firmware_path  # Use the existing file directly
+            
+        elif firmware_filename == 'none':
+            # User selected "-- Select Firmware --" but didn't choose a file
+            flash('Please select a firmware file from the dropdown', 'error')
             return redirect(url_for('index'))
-        
-        file = request.files['firmware']
-        
-        if file.filename == '':
-            flash('No firmware file selected', 'error')
-            return redirect(url_for('index'))
-        
-        if file and allowed_file(file.filename):
+            
+        else:
+            # Check if file was uploaded
+            if 'firmware' not in request.files:
+                flash('No firmware file selected', 'error')
+                return redirect(url_for('index'))
+            
+            file = request.files['firmware']
+            
+            if file.filename == '':
+                flash('No firmware file selected', 'error')
+                return redirect(url_for('index'))
+            
+            if not allowed_file(file.filename):
+                flash('Invalid file type. Please upload .bin or .bin.gz files only.', 'error')
+                return redirect(url_for('index'))
+            
             filename = secure_filename(file.filename)
             
             # Save the file temporarily
             temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(temp_path)
-            
-            # Get device credentials
-            ip = device['ip']
-            port = device.get('port', DEFAULT_ESP32_PORT)
-            username = device.get('username', DEFAULT_USERNAME)
-            password = device.get('password', DEFAULT_PASSWORD)
-            
-            # Record upload start
-            upload_record = {
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'device_ip': ip,
-                'device_hostname': device.get('hostname', ip),
-                'filename': filename,
-                'size': os.path.getsize(temp_path),
-                'status': 'uploading'
-            }
-            upload_history.append(upload_record)
-            
-            # Perform upload in background thread
-            def upload_task():
-                try:
-                    update_upload_record(upload_record, 'connecting')
+        
+        # Get device credentials
+        ip = device['ip']
+        port = device.get('port', DEFAULT_ESP32_PORT)
+        username = device.get('username', DEFAULT_USERNAME)
+        password = device.get('password', DEFAULT_PASSWORD)
+        
+        # Record upload start
+        upload_record = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'device_ip': ip,
+            'device_hostname': device.get('hostname', ip),
+            'filename': filename,
+            'size': os.path.getsize(temp_path),
+            'status': 'uploading'
+        }
+        upload_history.append(upload_record)
+        
+        # Perform upload in background thread
+        def upload_task():
+            try:
+                update_upload_record(upload_record, 'connecting')
+                
+                # Build URL
+                url = f'http://{ip}:{port}/update'
+                
+                # Prepare multipart form data
+                files = {'update': open(temp_path, 'rb')}
+                auth = (username, password)
+                
+                update_upload_record(upload_record, 'uploading')
+                
+                response = requests.post(url, 
+                                      files=files,
+                                      auth=auth,
+                                      timeout=120)
+                
+                if response.status_code == 200:
+                    update_upload_record(upload_record, 'success')
+                else:
+                    update_upload_record(upload_record, f'error: HTTP {response.status_code}')
                     
-                    # Build URL
-                    url = f'http://{ip}:{port}/update'
-                    
-                    # Prepare multipart form data
-                    files = {'update': open(temp_path, 'rb')}
-                    auth = (username, password)
-                    
-                    update_upload_record(upload_record, 'uploading')
-                    
-                    response = requests.post(url, 
-                                          files=files,
-                                          auth=auth,
-                                          timeout=120)
-                    
-                    if response.status_code == 200:
-                        update_upload_record(upload_record, 'success')
-                    else:
-                        update_upload_record(upload_record, f'error: HTTP {response.status_code}')
-                        
-                except Exception as e:
-                    update_upload_record(upload_record, f'error: {str(e)}')
-                finally:
-                    # Clean up temp file
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-            
-            # Start upload thread
-            thread = threading.Thread(target=upload_task)
-            thread.start()
-            
-            flash(f'Upload started for {device.get("hostname", ip)}', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('Invalid file type. Please upload .bin or .bin.gz files only.', 'error')
+            except Exception as e:
+                update_upload_record(upload_record, f'error: {str(e)}')
+            finally:
+                # Clean up temp file (only if it was in uploads folder)
+                if os.path.exists(temp_path) and temp_path.startswith(app.config['UPLOAD_FOLDER']):
+                    os.remove(temp_path)
+        
+        # Start upload thread
+        thread = threading.Thread(target=upload_task)
+        thread.start()
+        
+        flash(f'Upload started for {device.get("hostname", ip)}', 'success')
+        return redirect(url_for('index'))
     
     # GET request - show upload form
+    firmware_files = []
+    if os.path.exists(app.config['FIRMWARE_FOLDER']):
+        for filename in os.listdir(app.config['FIRMWARE_FOLDER']):
+            if allowed_file(filename):
+                filepath = os.path.join(app.config['FIRMWARE_FOLDER'], filename)
+                firmware_files.append({
+                    'name': filename,
+                    'size': os.path.getsize(filepath)
+                })
+    
     return render_template('upload.html', 
                          devices=devices,
-                         enumerated_devices=enumerate(devices))
+                         enumerated_devices=enumerate(devices),
+                         firmware_files=firmware_files)
 
 
 @app.route('/ota_upload', methods=['POST'])
@@ -588,7 +633,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print("ESP32 OTA Update Frontend")
     print("=" * 60)
-    print(f"Starting on http://127.0.0.0:5000")
+    print(f"Starting on http://localhost:5000")
     print(f"Uploads folder: {os.path.abspath(UPLOAD_FOLDER)}")
     print(f"Firmware folder: {os.path.abspath(FIRMWARE_FOLDER)}")
     print("=" * 60)

@@ -47,3 +47,4 @@ frontend/.env
 .cache/
 src/config.json
 src/config.txt
+data/config.txt

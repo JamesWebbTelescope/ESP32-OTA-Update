@@ -3,6 +3,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
+#include <SPIFFS.h>
 
 // Configuration - Update these values
 const char* ssid = "YOUR_WIFI_SSID";
@@ -259,7 +260,14 @@ void setupWiFi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
-  
+  File file = SPIFFS.open("/config.txt");
+  if(!file){
+    Serial.println("Failed to open file for reading");
+    return;
+  }
+  ssid = file.readStringUntil('\n').c_str();
+  password = file.readStringUntil('\n').c_str();
+  file.close();
   
   WiFi.begin(ssid, password);
   WiFi.setHostname(host);
@@ -315,6 +323,11 @@ void setup() {
   Serial.println("Firmware Version: " + firmwareVersion);
   Serial.println("Build Date: " + firmwareBuildDate);
   
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+
   // Initialize WiFi
   setupWiFi();
   

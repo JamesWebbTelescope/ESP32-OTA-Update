@@ -29,7 +29,7 @@ import time
 from datetime import datetime
 import socket
 import ipaddress
-import netifaces
+#import netifaces
 from functools import wraps
 
 app = Flask(__name__)
@@ -66,7 +66,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def get_local_ip():
+#*def get_local_ip():
     """Get the local IP address of the machine."""
     try:
         # Try to get the IP address of the default interface
@@ -100,12 +100,11 @@ def scan_network_for_esp32(start_ip='192.168.1.1', end_ip='192.168.1.254', timeo
     Scan the local network for ESP32 devices.
     This is a simple ping sweep - for more accurate results, use nmap.
     """
-    found_devices = []
-    local_ip = get_local_ip()
+    found_devices = []  # Default to localhost if we can't get the real IP
     
     # Extract network prefix
     try:
-        network = ipaddress.IPv4Network(local_ip + '/24', strict=False)
+        network = ipaddress.IPv4Network('localhost' + '/24', strict=False)
         start = network.network_address + 1
         end = network.broadcast_address - 1
     except Exception:
@@ -140,7 +139,7 @@ def scan_network_for_esp32(start_ip='192.168.1.1', end_ip='192.168.1.254', timeo
         ip_str = str(ipaddress.IPv4Address(ip_int))
         
         # Skip our own IP
-        if ip_str == local_ip:
+        if ip_str == 'localhost':
             continue
         
         # Check if port 80 is open (HTTP)
@@ -578,7 +577,7 @@ def api_upload():
 def inject_globals():
     return dict(
         app_name='ESP32 OTA Update Manager',
-        local_ip=get_local_ip(),
+        local_ip='localhost',
         default_username=DEFAULT_USERNAME,
         default_password='***',  # Don't expose password
         default_port=DEFAULT_ESP32_PORT
@@ -589,7 +588,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print("ESP32 OTA Update Frontend")
     print("=" * 60)
-    print(f"Starting on http://{get_local_ip()}:5000")
+    print(f"Starting on http://127.0.0.0:5000")
     print(f"Uploads folder: {os.path.abspath(UPLOAD_FOLDER)}")
     print(f"Firmware folder: {os.path.abspath(FIRMWARE_FOLDER)}")
     print("=" * 60)

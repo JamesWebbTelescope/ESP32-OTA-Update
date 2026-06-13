@@ -45,3 +45,5 @@ frontend/.env
 *.tmp
 *.temp
 .cache/
+src/config.json
+src/config.txt

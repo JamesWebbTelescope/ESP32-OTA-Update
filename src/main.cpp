@@ -258,6 +258,8 @@ void setupWiFi() {
   Serial.println("");
   Serial.print("Connecting to ");
   Serial.println(ssid);
+
+  
   
   WiFi.begin(ssid, password);
   WiFi.setHostname(host);

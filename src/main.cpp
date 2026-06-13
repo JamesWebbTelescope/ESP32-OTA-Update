@@ -171,7 +171,16 @@ void handleOTAUpload() {
   if (otaServer.method() == HTTP_POST) {
     // Handle raw binary upload
     if (Update.begin(UPDATE_SIZE_UNKNOWN)) {
-      size_t written = otaServer.streamFile(Update, Update.md5String());
+      size_t written = 0;
+      while (otaServer.client().connected()) {
+        if (otaServer.client().available()) {
+          uint8_t buffer[1024];
+          size_t len = otaServer.client().read(buffer, sizeof(buffer));
+          if (len > 0) {
+            written += Update.write(buffer, len);
+          }
+        }
+      }
       if (Update.end(true)) {
         otaServer.send(200, "text/plain", "Update successful, restarting...");
         delay(1000);
